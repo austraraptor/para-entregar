@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StatLabs - Prueba de Hipótesis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background-color: #f9f9f9;
+        }
+        input, select, button {
+            margin: 10px 0;
+            padding: 8px;
+            width: 90%;
+            font-size: 14px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        canvas {
+            margin-top: 20px;
+        }
+        .result {
+            text-align: left;
+            margin: 20px 0;
+        }
+        .result h4 {
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>StatLabs</h2>
+        <h3>Prueba de Hipótesis de Dos Variables</h3>
+
+        <!-- Formulario -->
+        <div>
+            <input type="number" id="media1" placeholder="Media Muestral 1 (𝜇₁)" required>
+            <input type="number" id="media2" placeholder="Media Muestral 2 (𝜇₂)" required>
+            <input type="number" id="desv1" placeholder="Desv. estándar 1 (σ₁)" required>
+            <input type="number" id="desv2" placeholder="Desv. estándar 2 (σ₂)" required>
+            <input type="number" id="n1" placeholder="Tamaño muestra 1 (n₁)" required>
+            <input type="number" id="n2" placeholder="Tamaño muestra 2 (n₂)" required>
+
+            <label for="H0">Hipótesis Nula (H₀):</label>
+            <input type="text" id="H0" placeholder="Ej. 𝜇₁ = 𝜇₂" required>
+
+            <label for="H1">Hipótesis Alterna (H₁):</label>
+            <select id="H1" required>
+                <option value="bilateral">𝜇₁ ≠ 𝜇₂</option>
+                <option value="unilateral_izq">𝜇₁ < 𝜇₂</option>
+                <option value="unilateral_der">𝜇₁ > 𝜇₂</option>
+            </select>
+
+            <input type="number" id="alfa" placeholder="Nivel de significancia (α)" step="0.01" min="0.01" max="0.1" required>
+            <button onclick="calcular()">Calcular y Graficar</button>
+        </div>
+
+        <!-- Resultados -->
+        <div id="resultados" class="result"></div>
+        <canvas id="grafico" width="600" height="400"></canvas>
+    </div>
+
+    <script>
+        function calcular() {
+            const media1 = parseFloat(document.getElementById("media1").value);
+            const media2 = parseFloat(document.getElementById("media2").value);
+            const desv1 = parseFloat(document.getElementById("desv1").value);
+            const desv2 = parseFloat(document.getElementById("desv2").value);
+            const n1 = parseFloat(document.getElementById("n1").value);
+            const n2 = parseFloat(document.getElementById("n2").value);
+            const alfa = parseFloat(document.getElementById("alfa").value);
+            const H0 = document.getElementById("H0").value;
+            const H1 = document.getElementById("H1").value;
+
+            // Paso 1: Estadístico Z para dos muestras independientes
+            const errorEstandar = Math.sqrt((Math.pow(desv1, 2) / n1) + (Math.pow(desv2, 2) / n2));
+            const estadisticoZ = (media1 - media2) / errorEstandar;
+
+            // Calcular Z₁ y Z₂
+            const zCritico1 = (alfa / 2);  // Cola izquierda
+            const zCritico2 = 1 - (alfa / 2);  // Cola derecha
+
+            // Determinar si el test es bilateral o unilateral
+            let zIzq = H1 === "bilateral" ? -zCritico1 : (H1 === "unilateral_izq" ? -1.645 : null);
+            let zDer = H1 === "bilateral" ? zCritico2 : (H1 === "unilateral_der" ? 1.645 : null);
+
+            // Paso 2: Determinar si está en la región de rechazo o aceptación
+            const enRRA = H1 === "bilateral"
+                ? (estadisticoZ > zIzq && estadisticoZ < zDer)
+                : H1 === "unilateral_izq"
+                ? estadisticoZ > zIzq
+                : estadisticoZ < zDer;
+
+            const decision = enRRA ? "No rechazamos H₀ (R.A.)" : "Rechazamos H₀ (R.R.)";
+
+            // Mostrar resultados
+            document.getElementById("resultados").innerHTML = 
+                `<h4>Hipótesis</h4>
+                <p><strong>H₀:</strong> ${H0}</p>
+                <p><strong>H₁:</strong> ${H1 === "bilateral" ? "𝜇₁ ≠ 𝜇₂" : H1 === "unilateral_izq" ? "𝜇₁ < 𝜇₂" : "𝜇₁ > 𝜇₂"}</p>
+                <h4>Estadístico Z</h4>
+                <p>Z = ${estadisticoZ.toFixed(3)}</p>
+                <h4>Decisión</h4>
+                <p>${decision}</p>
+                <p><strong>Valores críticos:</strong> Z₁ = ${zIzq}, Z₂ = ${zDer}</p>`;
+
+            // Gráfico
+            const ctx = document.getElementById("grafico").getContext("2d");
+            const xValues = Array.from({ length: 81 }, (_, i) => -4 + i * 0.1);
+            const yValues = xValues.map(x => (1 / Math.sqrt(2 * Math.PI)) * Math.exp(-0.5 * x * x));
+
+            new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: xValues,
+                    datasets: [
+                        {
+                            label: "Distribución Normal Estándar",
+                            data: yValues,
+                            borderColor: "blue",
+                            fill: false,
+                        },
+                        {
+                            label: "R.R.",
+                            data: xValues.map(x => (x < zIzq || x > zDer) ? 0.02 : NaN),
+                            borderColor: "red",
+                            backgroundColor: "rgba(255, 0, 0, 0.3)",
+                            fill: true,
+                        },
+                        {
+                            label: "Estadístico Z",
+                            data: xValues.map(x => Math.abs(x - estadisticoZ) < 0.05 ? 0.05 : NaN),
+                            borderColor: "green",
+                            pointBackgroundColor: "blue",
+                            pointRadius: 5,
+                            showLine: false,
+                        },
+                    ],
+                },
+                options: {
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'bottom',
+                        },
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: "Z" },
+                        },
+                        y: {
+                            title: { display: true, text: "Densidad" },
+                            suggestedMax: 0.5,
+                        },
+                    },
+                },
+            });
+        }
+    </script>
+</body>
+</html>
